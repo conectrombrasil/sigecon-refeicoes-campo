@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#141619">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icone-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Refeições — SIGECON</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#141619;--bg2:#1E2126;--bg3:#272B31;--tx:#F5F5F5;--tx2:#C3C7CE;--tx3:#8B9099;--bd:#2E333A;--or:#F97316;--or2:#FC5D02;--ok:#16A34A;--err:#DC2626;--warn:#E0A830;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--tx);font-size:15px;}
+button,input,select{font-family:inherit;font-size:inherit;}
+.tela{display:none;min-height:100%;flex-direction:column;}
+.tela.ativa{display:flex;}
+.topo{display:flex;align-items:center;gap:10px;padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top));background:var(--bg2);border-bottom:1px solid var(--bd);}
+.topo h1{font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.topo small{display:block;font-size:12px;color:var(--tx3);font-weight:400;}
+.ic-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--bd);background:var(--bg3);color:var(--tx);font-size:18px;cursor:pointer;flex-shrink:0;}
+.conteudo{flex:1;padding:14px;padding-bottom:calc(20px + env(safe-area-inset-bottom));max-width:560px;width:100%;margin:0 auto;}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:15px;border-radius:14px;border:0;background:linear-gradient(120deg,var(--or2),var(--or));color:#fff;font-weight:700;font-size:16px;cursor:pointer;}
+.btn:disabled{opacity:.6;}
+.btn.sec{background:var(--bg3);border:1px solid var(--bd);color:var(--tx);font-weight:600;}
+.btn.grande{padding:26px 15px;font-size:20px;border-radius:18px;}
+.campo{margin-bottom:12px;}
+.campo label{display:block;font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:5px;}
+.campo input,.campo select{width:100%;padding:13px 12px;border-radius:11px;border:1px solid var(--bd);background:var(--bg3);color:var(--tx);outline:none;}
+.campo input:focus{border-color:var(--or);}
+.erro{color:#F87171;font-size:13px;min-height:18px;margin:6px 0;}
+.dica{font-size:12.5px;color:var(--tx3);}
+.status{font-size:12.5px;padding:8px 12px;text-align:center;}
+.status.off{background:#3b2a12;color:#FCD34D;}.status.pend{background:#2a2f3a;color:var(--tx2);}.status.ok{background:#11281a;color:#86EFAC;}
+.status button{margin-left:8px;border:1px solid currentColor;background:transparent;color:inherit;border-radius:8px;padding:3px 8px;font-size:12px;}
+.tipos{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+.tipos button{padding:12px 4px;border-radius:12px;border:1.5px solid var(--bd);background:var(--bg2);color:var(--tx2);font-weight:600;font-size:13px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.tipos button span{font-size:22px;}
+.tipos button b{font-size:11px;font-weight:600;color:var(--tx3);}
+.tipos button.on{border-color:var(--or);background:rgba(249,115,22,.12);color:var(--tx);}
+.tipos button.on b{color:var(--or);}
+.cont{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:2px 0 14px;color:var(--tx2);font-size:14px;}
+.cont b{font-size:34px;color:var(--tx);}
+.linha2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+.lista h3{font-size:12px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;margin:20px 2px 8px;}
+.reg{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--bd);border-radius:12px;background:var(--bg2);margin-bottom:6px;}
+.reg .h{font-weight:700;font-variant-numeric:tabular-nums;min-width:44px;}
+.reg .n{flex:1;min-width:0;}
+.reg .n b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reg .n small{color:var(--tx3);font-size:12px;}
+.reg .t{font-size:11px;padding:2px 7px;border-radius:10px;background:var(--bg3);color:var(--tx2);white-space:nowrap;}
+.reg.canc{opacity:.45;text-decoration:line-through;}
+/* scanner */
+#tela-scan{background:#000;}
+#scan-video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;}
+.scan-mira{position:fixed;left:50%;top:44%;width:72vw;max-width:340px;height:44vw;max-height:210px;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.85);border-radius:18px;box-shadow:0 0 0 2000px rgba(0,0,0,.45);}
+.scan-topo{position:fixed;top:0;left:0;right:0;padding:14px;padding-top:calc(14px + env(safe-area-inset-top));display:flex;align-items:center;gap:10px;color:#fff;z-index:5;}
+.scan-topo .t{flex:1;font-weight:700;font-size:16px;text-shadow:0 1px 4px #000;}
+.scan-pe{position:fixed;bottom:0;left:0;right:0;padding:14px;padding-bottom:calc(16px + env(safe-area-inset-bottom));z-index:5;display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.scan-msg{position:fixed;left:0;right:0;top:calc(44% + 130px);text-align:center;color:#fff;font-size:14px;text-shadow:0 1px 4px #000;z-index:5;padding:0 20px;}
+/* resultado */
+.res{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;color:#fff;}
+.res.on{display:flex;}
+.res.verde{background:#15803D;}.res.vermelho{background:#B91C1C;}
+.res .ic{font-size:84px;line-height:1;margin-bottom:10px;}
+.res .tt{font-size:30px;font-weight:800;letter-spacing:.5px;}
+.res .nm{font-size:22px;font-weight:700;margin-top:14px;}
+.res .sb{font-size:16px;opacity:.92;margin-top:4px;}
+.res .av{margin-top:16px;background:rgba(0,0,0,.25);border-radius:12px;padding:10px 14px;font-size:15px;font-weight:600;}
+.res .bts{margin-top:26px;display:grid;gap:10px;width:100%;max-width:360px;}
+.res .bts button{padding:15px;border-radius:14px;border:2px solid rgba(255,255,255,.75);background:transparent;color:#fff;font-weight:700;font-size:16px;}
+.res .bts button.forte{background:#fff;color:#B91C1C;border-color:#fff;}
+/* modal */
+.modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;}
+.modal.on{display:flex;}
+.modal .cx{background:var(--bg2);width:100%;max-width:560px;border-radius:20px 20px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow:auto;}
+.modal h2{font-size:18px;margin-bottom:4px;}
+.busca-res{max-height:46vh;overflow:auto;margin:6px 0 10px;}
+.busca-res button{display:block;width:100%;text-align:left;padding:11px 12px;border:1px solid var(--bd);background:var(--bg3);color:var(--tx);border-radius:11px;margin-bottom:6px;cursor:pointer;}
+.busca-res button small{display:block;color:var(--tx3);font-size:12px;margin-top:2px;}
+.foto-prev{display:flex;align-items:center;gap:10px;margin:4px 0 12px;}
+.foto-prev img{width:64px;height:64px;object-fit:cover;border-radius:10px;}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#374151;color:#fff;padding:11px 16px;border-radius:12px;font-size:14px;z-index:60;max-width:92vw;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+.toast.erro{background:#B91C1C;}.toast.ok{background:#15803D;}
+.selo{text-align:center;font-size:11px;color:var(--tx3);margin-top:18px;}
+.obra-it{display:block;width:100%;text-align:left;padding:15px 14px;border:1px solid var(--bd);background:var(--bg2);color:var(--tx);border-radius:13px;margin-bottom:8px;font-size:15px;font-weight:600;cursor:pointer;}
+.marca{display:flex;flex-direction:column;align-items:center;margin:40px 0 26px;gap:10px;}
+.marca img{width:84px;height:84px;border-radius:20px;}
+.marca b{font-size:22px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="tela" id="tela-login">
+  <div class="conteudo">
+    <div class="marca"><img src="icone-192.png" alt=""><b>Refeições</b><span class="dica">SIGECON · Conectrom</span></div>
+    <div class="campo"><label>E-mail</label><input type="email" id="login-email" autocomplete="username" inputmode="email"></div>
+    <div class="campo"><label>Senha</label><input type="password" id="login-senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
+    <div class="erro" id="login-erro"></div>
+    <button class="btn" id="btn-login" onclick="fazerLogin()">Entrar</button>
+    <div class="selo" id="selo-login"></div>
+  </div>
+</div>
+
+<!-- OBRA -->
+<div class="tela" id="tela-obra">
+  <div class="topo"><h1>Qual refeitório?<small>Escolha a obra</small></h1><button class="ic-btn" onclick="sair()" title="Sair">⎋</button></div>
+  <div class="conteudo"><div id="obras-lista"></div><div class="erro" id="obra-erro"></div></div>
+</div>
+
+<!-- PRINCIPAL -->
+<div class="tela" id="tela-home">
+  <div class="topo"><h1 id="home-obra">—<small id="home-data"></small></h1><button class="ic-btn" onclick="trocarObra()" title="Trocar obra">🏗️</button><button class="ic-btn" onclick="sair()" title="Sair">⎋</button></div>
+  <div class="status" id="status"></div>
+  <div class="conteudo">
+    <div class="tipos" id="tipos"></div>
+    <div class="cont"><b id="cont-n">0</b><span id="cont-rot">entregues</span></div>
+    <button class="btn grande" onclick="abrirScanner()">📷 Ler crachá</button>
+    <div class="linha2">
+      <button class="btn sec" onclick="abrirBusca()">🔎 Buscar nome</button>
+      <button class="btn sec" onclick="abrirManual()">⌨️ Digitar</button>
+    </div>
+    <div class="lista"><h3>Últimas entregas</h3><div id="ultimos"></div></div>
+    <div class="selo" id="selo-home"></div>
+  </div>
+</div>
+
+<!-- SCANNER -->
+<div class="tela" id="tela-scan">
+  <video id="scan-video" playsinline muted autoplay></video>
+  <div class="scan-mira"></div>
+  <div class="scan-topo"><button class="ic-btn" onclick="fecharScanner()" style="background:rgba(0,0,0,.4);color:#fff;border-color:rgba(255,255,255,.3)">✕</button><div class="t" id="scan-tit">Almoço</div><span id="scan-cont" style="font-weight:700;text-shadow:0 1px 4px #000"></span></div>
+  <div class="scan-msg" id="scan-msg">Aponte para o QR code ou código de barras do crachá</div>
+  <div class="scan-pe"><button class="btn sec" onclick="fecharScanner();abrirBusca()">🔎 Buscar nome</button><button class="btn sec" onclick="fecharScanner();abrirManual()">⌨️ Digitar</button></div>
+</div>
+
+<!-- RESULTADO -->
+<div class="res" id="res"></div>
+
+<!-- MODAL: buscar funcionário -->
+<div class="modal" id="m-busca"><div class="cx">
+  <h2 id="busca-tit">Buscar funcionário</h2>
+  <div class="dica" id="busca-dica" style="margin-bottom:8px">Nome ou matrícula</div>
+  <div class="campo"><input id="busca-txt" placeholder="Digite o nome ou a matrícula" oninput="renderBusca()" autocomplete="off"></div>
+  <div class="busca-res" id="busca-res"></div>
+  <div class="linha2"><button class="btn sec" onclick="fecharModal('m-busca')">Cancelar</button><button class="btn sec" onclick="fecharModal('m-busca');abrirManual(_buscaCodigo)">Não está na lista</button></div>
+</div></div>
+
+<!-- MODAL: digitar (não cadastrado / outra empresa) -->
+<div class="modal" id="m-manual"><div class="cx">
+  <h2>Funcionário não cadastrado</h2>
+  <div class="dica" id="man-dica" style="margin-bottom:10px">Para quem não está no cadastro ou é de outra empresa.</div>
+  <div class="campo"><label>Nome completo *</label><input id="man-nome" autocomplete="off"></div>
+  <div class="linha2" style="margin-top:0">
+    <div class="campo"><label>Matrícula</label><input id="man-mat" inputmode="numeric" autocomplete="off"></div>
+    <div class="campo"><label>Empresa</label><input id="man-emp" placeholder="Conectrom" autocomplete="off" list="emp-lista"></div>
+  </div>
+  <datalist id="emp-lista"></datalist>
+  <div class="foto-prev" id="man-foto-prev"></div>
+  <button class="btn sec" onclick="document.getElementById('man-foto').click()" style="margin-bottom:12px">📷 Foto do crachá (opcional)</button>
+  <input type="file" id="man-foto" accept="image/*" capture="environment" style="display:none" onchange="fotoCracha(this.files[0]);this.value=''">
+  <div class="erro" id="man-erro"></div>
+  <div class="linha2" style="margin-top:0"><button class="btn sec" onclick="fecharModal('m-manual')">Cancelar</button><button class="btn" onclick="salvarManual()">✓ Liberar</button></div>
+</div></div>
+
+<!-- MODAL: liberar repetida -->
+<div class="modal" id="m-motivo"><div class="cx">
+  <h2>Liberar de novo?</h2>
+  <div class="dica" style="margin-bottom:10px" id="mot-dica"></div>
+  <div class="campo"><label>Motivo *</label><select id="mot-sel"><option value="">Escolha…</option><option>Refeição extra autorizada</option><option>Turno dobrado</option><option>Registro anterior foi engano</option><option>Outro</option></select></div>
+  <div class="campo" id="mot-outro-c" style="display:none"><input id="mot-outro" placeholder="Qual o motivo?"></div>
+  <div class="erro" id="mot-erro"></div>
+  <div class="linha2" style="margin-top:0"><button class="btn sec" onclick="fecharModal('m-motivo');voltarAoScanner()">Cancelar</button><button class="btn" onclick="confirmarRepetida()">Liberar</button></div>
+</div></div>
+<script>
+const APP_VERSAO = 'v1 · 04/11';
+const SUPABASE_URL = 'https://adfrybyxcamkuyewzyns.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkZnJ5Ynl4Y2Fta3V5ZXd6eW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODQzNTcsImV4cCI6MjA5MTg2MDM1N30.DWzvf6tS-0TQ_zfXaq3MKE5eCwIz0gMyidAPBs-YuJ0';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'sigecon-refeicoes' } });
+// ════════════════ SIGECON ARQUIVOS v1 — início (bloco igual em todos os módulos) ════════════════
+// Arquivos novos vão pro Supabase Storage. Arquivos antigos (drive_id preenchido)
+// continuam abrindo pelo Drive até serem migrados. A geração do contrato no
+// Google Docs NÃO usa isto (continua no Drive, pra poder editar no Docs).
+//
+// Onde fica cada coisa:
+//   · Documentos (CPF, NF, comprovantes, contratos anexos, chats…) → bucket PRIVADO
+//     'sigecon-docs' — só abre com login, por link temporário.
+//   · Fotos de vistoria → bucket PÚBLICO 'vistorias-campo-fotos' (o app usa offline).
+// No banco: drive_id = null; drive_url (e download_url, onde existir) guardam o
+// endereço do arquivo no Storage: .../storage/v1/object/<bucket>/<caminho>
+// (ou .../object/public/<bucket>/<caminho> quando o bucket é público).
+const SG_BUCKET_DOCS = 'sigecon-docs';
+const SG_BUCKET_FOTOS = 'vistorias-campo-fotos';
+const SG_MODULOS_FOTO_PUBLICA = ['vistoria_comodo', 'vistoria_geral', 'vistoria_movel'];
+
+function _sgGasUrl() {
+  if (typeof DRIVE_GAS_URL !== 'undefined' && DRIVE_GAS_URL) return DRIVE_GAS_URL;
+  if (typeof GAS_DRIVE_URL !== 'undefined' && GAS_DRIVE_URL) return GAS_DRIVE_URL;
+  return null;
+}
+async function _sgUsuarioId() {
+  try { const { data } = await sb.auth.getSession(); return data?.session?.user?.id || ''; } catch (e) { return ''; }
+}
+async function _sgTokenGas() { return btoa((await _sgUsuarioId()) + ':' + Date.now() + ':' + (typeof SG_SUFIXO_TOKEN !== 'undefined' ? SG_SUFIXO_TOKEN : 'sigecon')); }
+function sgNomeSeguro(nome) {
+  return String(nome || 'arquivo').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_').slice(-120) || 'arquivo';
+}
+
+// Onde está o arquivo de um registro (linha de documentos, solicitacoes_documentos, mensagens…)
+function sgLocalArquivo(reg) {
+  if (!reg) return null;
+  if (reg.drive_id && reg.drive_id !== 'null') return { tipo: 'drive', driveId: reg.drive_id };
+  for (const u of [reg.download_url, reg.drive_url, reg.url]) {
+    const m = String(u || '').match(/\/storage\/v1\/object\/(?:(public|sign|authenticated)\/)?([^/?#]+)\/([^?#]+)/);
+    if (m) return { tipo: 'storage', bucket: m[2], caminho: decodeURIComponent(m[3]), publico: m[1] === 'public' };
+  }
+  return null;
+}
+function sgTemArquivo(reg) { return !!sgLocalArquivo(reg); }
+
+// Link pra abrir/baixar. Privado → link temporário (padrão 15 min).
+async function sgUrlArquivo(reg, opcoes) {
+  const o = opcoes || {};
+  const loc = sgLocalArquivo(reg);
+  if (!loc) return null;
+  if (loc.tipo === 'drive') {
+    const gas = _sgGasUrl();
+    return gas ? `${gas}?acao=baixar&driveId=${encodeURIComponent(loc.driveId)}&token=${await _sgTokenGas()}` : null;
+  }
+  if (loc.publico && !o.nomeDownload) return sb.storage.from(loc.bucket).getPublicUrl(loc.caminho).data.publicUrl;
+  const { data, error } = await sb.storage.from(loc.bucket)
+    .createSignedUrl(loc.caminho, o.segundos || 900, o.nomeDownload ? { download: o.nomeDownload } : undefined);
+  if (error) throw new Error('Não foi possível gerar o link do arquivo: ' + error.message);
+  return data.signedUrl;
+}
+
+// Conteúdo do arquivo (pra juntar PDFs, gerar .zip, relatório etc.)
+async function sgBytesArquivo(reg) {
+  const loc = sgLocalArquivo(reg);
+  if (!loc) throw new Error('Arquivo sem endereço');
+  if (loc.tipo === 'drive') {
+    const gas = _sgGasUrl();
+    if (!gas) throw new Error('Endereço do Drive não configurado');
+    const resp = await fetch(`${gas}?acao=base64&driveId=${encodeURIComponent(loc.driveId)}&token=${await _sgTokenGas()}`);
+    const json = await resp.json();
+    if (!json.sucesso) throw new Error(json.erro || 'Falha ao baixar do Drive');
+    const bin = atob(json.base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { bytes, mimeType: json.mimeType || reg.mime_type || 'application/octet-stream' };
+  }
+  const { data, error } = await sb.storage.from(loc.bucket).download(loc.caminho);
+  if (error) throw new Error('Falha ao baixar do Supabase: ' + error.message);
+  return { bytes: new Uint8Array(await data.arrayBuffer()), mimeType: data.type || reg.mime_type || 'application/octet-stream' };
+}
+function _sgBytesParaBase64(bytes) {
+  let bin = '';
+  for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(k, k + 0x8000));
+  return btoa(bin);
+}
+async function sgBase64Arquivo(reg) {
+  const { bytes, mimeType } = await sgBytesArquivo(reg);
+  return { base64: _sgBytesParaBase64(bytes), mimeType };
+}
+async function sgDataUrlArquivo(reg) {
+  const { base64, mimeType } = await sgBase64Arquivo(reg);
+  return `data:${mimeType};base64,${base64}`;
+}
+
+// Abre numa aba nova (abre a aba já, senão o navegador bloqueia o pop-up)
+async function sgAbrirArquivo(reg) {
+  const janela = window.open('', '_blank');
+  try {
+    const url = await sgUrlArquivo(reg);
+    if (!url) throw new Error('Arquivo sem endereço');
+    if (janela) janela.location.href = url; else window.location.href = url;
+  } catch (e) {
+    if (janela) janela.close();
+    _sgAviso('Não foi possível abrir o arquivo: ' + (e.message || e));
+  }
+}
+// Baixa direto (salva no aparelho com o nome certo)
+async function sgBaixarArquivo(reg, nomeArquivo) {
+  try {
+    const nome = nomeArquivo || reg.nome_arquivo || 'arquivo';
+    const { bytes, mimeType } = await sgBytesArquivo(reg);
+    const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+    const a = document.createElement('a');
+    a.href = url; a.download = nome;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  } catch (e) {
+    _sgAviso('Não foi possível baixar o arquivo: ' + (e.message || e));
+  }
+}
+function _sgAviso(msg) {
+  if (typeof mostrarToast === 'function') mostrarToast(msg, 'erro');
+  else if (typeof toast === 'function') toast(msg, 'erro');
+  else alert(msg);
+}
+
+// Envia pro Supabase Storage. Aceita File/Blob ou base64 (string).
+// Devolve os campos pra gravar no registro: { drive_id, drive_url, download_url, caminho, bucket }
+async function sgEnviarArquivo(arquivo, opcoes) {
+  const o = opcoes || {};
+  const publico = o.publico != null ? o.publico : SG_MODULOS_FOTO_PUBLICA.includes(o.modulo);
+  const bucket = o.bucket || (publico ? SG_BUCKET_FOTOS : SG_BUCKET_DOCS);
+  const nome = o.nomeArquivo || arquivo?.name || 'arquivo';
+  const mimeType = o.mimeType || arquivo?.type || 'application/octet-stream';
+  let corpo = arquivo;
+  if (typeof arquivo === 'string') {
+    const bin = atob(arquivo.includes(',') ? arquivo.split(',')[1] : arquivo);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    corpo = new Blob([bytes], { type: mimeType });
+  }
+  const pasta = [sgNomeSeguro(o.modulo || 'geral'), sgNomeSeguro(o.registroId || 'sem-registro')].join('/');
+  const caminho = `${pasta}/${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${sgNomeSeguro(nome)}`;
+  const { error } = await sb.storage.from(bucket).upload(caminho, corpo, { contentType: mimeType, upsert: false });
+  if (error) throw new Error('Erro ao enviar o arquivo: ' + error.message);
+  const url = publico
+    ? sb.storage.from(bucket).getPublicUrl(caminho).data.publicUrl
+    : `${SUPABASE_URL}/storage/v1/object/${bucket}/${caminho}`;
+  return { drive_id: null, drive_url: url, download_url: url, caminho, bucket };
+}
+
+// Apaga o arquivo do Storage (arquivo do Drive não é apagado — fica como histórico)
+async function sgRemoverArquivo(reg) {
+  const loc = sgLocalArquivo(reg);
+  if (!loc || loc.tipo !== 'storage') return;
+  try { await sb.storage.from(loc.bucket).remove([loc.caminho]); } catch (e) { /* não impede o resto */ }
+}
+
+// Pra botões em HTML gerado: guarda o registro e usa só uma chave no onclick
+// Ex.: `<button onclick="sgAbrirPorChave('${sgGuardar(doc)}')">Abrir</button>`
+const _sgRegistros = {};
+function sgGuardar(reg) {
+  const chave = String(reg?.id || ('r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)));
+  _sgRegistros[chave] = reg;
+  return chave;
+}
+function sgAbrirPorChave(chave) { const r = _sgRegistros[chave]; if (r) sgAbrirArquivo(r); }
+function sgBaixarPorChave(chave, nome) { const r = _sgRegistros[chave]; if (r) sgBaixarArquivo(r, nome); }
+// ════════════════ SIGECON ARQUIVOS v1 — fim ════════════════
+
+// ═══════════ armazenamento no aparelho (IndexedDB) ═══════════
+const DB_NOME = 'refeicoes-campo', DB_VERSAO = 1;
+let _db = null;
+function idb() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((ok, falha) => {
+    const r = indexedDB.open(DB_NOME, DB_VERSAO);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv', { keyPath: 'k' });
+      if (!d.objectStoreNames.contains('colabs')) d.createObjectStore('colabs', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('crachas')) d.createObjectStore('crachas', { keyPath: 'codigo' });
+      if (!d.objectStoreNames.contains('horarios')) d.createObjectStore('horarios', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('regs')) d.createObjectStore('regs', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('fila')) d.createObjectStore('fila', { keyPath: 'seq', autoIncrement: true });
+    };
+    r.onsuccess = () => { _db = r.result; ok(_db); };
+    r.onerror = () => falha(r.error);
+  });
+}
+async function _tx(store, modo, fn) { const d = await idb(); return new Promise((ok, falha) => { const t = d.transaction(store, modo); const s = t.objectStore(store); const r = fn(s); t.oncomplete = () => ok(r && 'result' in r ? r.result : undefined); t.onerror = () => falha(t.error); }); }
+const idbPegar = (s, k) => _tx(s, 'readonly', st => st.get(k));
+const idbTodos = (s) => _tx(s, 'readonly', st => st.getAll());
+const idbSalvar = (s, v) => _tx(s, 'readwrite', st => st.put(v));
+const idbRemover = (s, k) => _tx(s, 'readwrite', st => st.delete(k));
+async function idbTrocarTudo(s, lista) { const d = await idb(); return new Promise((ok, falha) => { const t = d.transaction(s, 'readwrite'); const st = t.objectStore(s); st.clear(); lista.forEach(v => st.put(v)); t.oncomplete = ok; t.onerror = () => falha(t.error); }); }
+const kvPegar = async k => ((await idbPegar('kv', k)) || {}).v;
+const kvSalvar = (k, v) => idbSalvar('kv', { k, v });
+
+// ═══════════ utilidades ═══════════
+const TIPOS = { cafe: ['☕', 'Café'], almoco: ['🍽️', 'Almoço'], jantar: ['🌙', 'Jantar'], lanche: ['🥪', 'Lanche'] };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const soDig = s => String(s || '').replace(/\D/g, '');
+const semZeros = s => String(s || '').trim().replace(/^0+(?=\d)/, '');
+const hojeISO = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const hhmm = iso => { const d = new Date(iso); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); }));
+function toast(msg, tipo) { document.querySelector('.toast')?.remove(); const t = document.createElement('div'); t.className = 'toast ' + (tipo || ''); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), tipo === 'erro' ? 5000 : 2800); }
+function mostrarTela(id) { document.querySelectorAll('.tela').forEach(t => t.classList.toggle('ativa', t.id === id)); }
+function abrirModal(id) { document.getElementById(id).classList.add('on'); }
+function fecharModal(id) { document.getElementById(id).classList.remove('on'); }
+let _ac = null;
+function bip(ok) {
+  try { _ac = _ac || new (window.AudioContext || window.webkitAudioContext)(); const o = _ac.createOscillator(), g = _ac.createGain();
+    o.type = 'sine'; o.frequency.value = ok ? 880 : 220; g.gain.value = .18; o.connect(g); g.connect(_ac.destination); o.start(); o.stop(_ac.currentTime + (ok ? .15 : .45)); } catch (e) { }
+  try { navigator.vibrate && navigator.vibrate(ok ? 60 : [120, 80, 120]); } catch (e) { }
+}
+function aparelhoId() { try { let a = localStorage.getItem('ref_aparelho'); if (!a) { a = uuid().slice(0, 8); localStorage.setItem('ref_aparelho', a); } return a; } catch (e) { return 'web'; } }
+
+// ═══════════ estado ═══════════
+let sessao = null, perfil = null, meuNome = '', obra = null, tipo = 'almoco';
+let colabs = [], crachas = {}, horarios = [], regs = [];
+
+// ═══════════ entrada ═══════════
+window.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('selo-login').textContent = 'Refeições · ' + APP_VERSAO;
+  document.getElementById('selo-home').textContent = 'Refeições · ' + APP_VERSAO;
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
+  const { data } = await sb.auth.getSession();
+  if (!data?.session) { mostrarTela('tela-login'); return; }
+  sessao = data.session; await iniciar();
+});
+async function fazerLogin() {
+  const email = document.getElementById('login-email').value.trim(), senha = document.getElementById('login-senha').value;
+  const er = document.getElementById('login-erro'), bt = document.getElementById('btn-login');
+  er.textContent = '';
+  if (!email || !senha) { er.textContent = 'Preencha e-mail e senha.'; return; }
+  if (!navigator.onLine) { er.textContent = 'Para entrar da primeira vez é preciso internet.'; return; }
+  bt.disabled = true; bt.textContent = 'Entrando…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+  bt.disabled = false; bt.textContent = 'Entrar';
+  if (error) { er.textContent = 'E-mail ou senha incorretos.'; return; }
+  sessao = data.session; await iniciar();
+}
+async function sair() {
+  const fila = await idbTodos('fila');
+  if (!confirm(fila.length ? `Há ${fila.length} registro(s) ainda não enviados. Eles ficam guardados neste celular até você entrar de novo com internet.\n\nSair mesmo assim?` : 'Sair do app?')) return;
+  await sb.auth.signOut(); mostrarTela('tela-login');
+}
+async function iniciar() {
+  if (navigator.onLine) {
+    try {
+      const { data: p, error } = await sb.rpc('ref_perfil'); if (!error) { perfil = p; await kvSalvar('perfil', p); }
+      const { data: u } = await sb.from('usuarios').select('nome').eq('id', sessao.user.id).maybeSingle(); if (u?.nome) { meuNome = u.nome; await kvSalvar('nome', u.nome); }
+    } catch (e) { }
+  }
+  if (perfil == null) perfil = await kvPegar('perfil');
+  if (!meuNome) meuNome = (await kvPegar('nome')) || sessao.user.email;
+  if (!perfil) { document.getElementById('login-erro').textContent = 'Seu usuário não tem acesso ao módulo Refeições. Fale com o administrador.'; await sb.auth.signOut(); mostrarTela('tela-login'); return; }
+  if (perfil === 'visualizador') { document.getElementById('login-erro').textContent = 'Seu acesso é só de visualização: veja os registros no SIGECON.'; await sb.auth.signOut(); mostrarTela('tela-login'); return; }
+  obra = await kvPegar('obra');
+  await carregarLocal();
+  if (!obra) { await escolherObra(); return; }
+  await entrarHome();
+}
+async function carregarLocal() {
+  colabs = await idbTodos('colabs');
+  crachas = {}; (await idbTodos('crachas')).forEach(c => { crachas[c.codigo] = c.colaborador_id; });
+  horarios = await idbTodos('horarios');
+  regs = await idbTodos('regs');
+}
+// ═══════════ obra ═══════════
+async function escolherObra() {
+  mostrarTela('tela-obra');
+  const el = document.getElementById('obras-lista'), er = document.getElementById('obra-erro');
+  let obras = (await kvPegar('obras')) || [];
+  if (navigator.onLine) { try { const { data, error } = await sb.rpc('ref_minhas_obras'); if (!error) { obras = data || []; await kvSalvar('obras', obras); } } catch (e) { } }
+  er.textContent = obras.length ? '' : (navigator.onLine ? 'Nenhuma obra liberada para você.' : 'Sem internet: conecte uma vez para baixar as obras.');
+  el.innerHTML = obras.map(o => `<button class="obra-it" onclick="definirObra('${o.id}')">🏗️ ${esc(o.nome)}</button>`).join('');
+}
+async function definirObra(id) { const obras = (await kvPegar('obras')) || []; obra = obras.find(o => o.id === id); await kvSalvar('obra', obra); await entrarHome(); }
+function trocarObra() { escolherObra(); }
+async function entrarHome() {
+  document.getElementById('home-obra').innerHTML = `${esc(obra.nome)}<small id="home-data"></small>`;
+  tipo = tipoPelaHora();
+  mostrarTela('tela-home'); renderHome();
+  baixarDados().then(renderHome);
+  sincronizar();
+}
+// ═══════════ dados do servidor ═══════════
+async function baixarDados() {
+  if (!navigator.onLine) return;
+  try {
+    const desde = hojeISO(new Date(Date.now() - 36 * 3600e3));
+    const [c1, c2, c3, c4] = await Promise.all([
+      sb.rpc('ref_colaboradores'),
+      sb.from('ref_crachas').select('codigo,colaborador_id'),
+      sb.from('ref_horarios').select('*').eq('ativo', true),
+      sb.from('ref_registros').select('id,obra_id,tipo,entregue_em,data,colaborador_id,nome,matricula,empresa,origem,cancelado,repetida,fora_horario').eq('obra_id', obra.id).gte('data', desde),
+    ]);
+    if (!c1.error) { colabs = c1.data || []; await idbTrocarTudo('colabs', colabs); }
+    if (!c2.error) { await idbTrocarTudo('crachas', c2.data || []); crachas = {}; (c2.data || []).forEach(c => { crachas[c.codigo] = c.colaborador_id; }); }
+    if (!c3.error) { horarios = c3.data || []; await idbTrocarTudo('horarios', horarios); }
+    if (!c4.error) {
+      const pend = new Set((await idbTodos('fila')).filter(f => f.tipo === 'registro').map(f => f.payload.id));
+      const locais = (await idbTodos('regs')).filter(r => pend.has(r.id) || r.data >= desde);
+      const mapa = {}; locais.forEach(r => mapa[r.id] = r); (c4.data || []).forEach(r => { mapa[r.id] = { ...mapa[r.id], ...r, enviado: true }; });
+      regs = Object.values(mapa).filter(r => r.data >= desde);
+      await idbTrocarTudo('regs', regs);
+    }
+    await kvSalvar('baixado_em', new Date().toISOString());
+  } catch (e) { }
+}
+// ═══════════ horários ═══════════
+function horarioDe(t) { return horarios.find(h => h.tipo === t && h.obra_id === obra?.id) || horarios.find(h => h.tipo === t && !h.obra_id); }
+function dentroHorario(t, d) {
+  const h = horarioDe(t); if (!h || !h.hora_inicio || !h.hora_fim) return true;
+  const m = d.getHours() * 60 + d.getMinutes(), a = h.hora_inicio.split(':'), b = h.hora_fim.split(':');
+  return m >= (+a[0]) * 60 + (+a[1]) && m <= (+b[0]) * 60 + (+b[1]);
+}
+function tipoPelaHora() {
+  const d = new Date();
+  for (const t of ['cafe', 'almoco', 'jantar']) if (horarioDe(t)?.hora_inicio && dentroHorario(t, d)) return t;
+  const h = d.getHours(); return h < 10 ? 'cafe' : h < 16 ? 'almoco' : 'jantar';
+}
+const faixaTxt = t => { const h = horarioDe(t); return h && h.hora_inicio && h.hora_fim ? h.hora_inicio.slice(0, 5) + '–' + h.hora_fim.slice(0, 5) : 'livre'; };
+// ═══════════ tela principal ═══════════
+const regsHoje = () => regs.filter(r => r.obra_id === obra?.id && r.data === hojeISO() && !r.cancelado);
+function renderHome() {
+  if (!obra) return;
+  const d = new Date();
+  const hd = document.getElementById('home-data'); if (hd) hd.textContent = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+  const hj = regsHoje();
+  document.getElementById('tipos').innerHTML = Object.entries(TIPOS).map(([k, [ic, rot]]) => `<button class="${k === tipo ? 'on' : ''}" onclick="tipo='${k}';renderHome()"><span>${ic}</span>${rot}<b>${hj.filter(r => r.tipo === k).length} · ${faixaTxt(k)}</b></button>`).join('');
+  const n = hj.filter(r => r.tipo === tipo).length;
+  document.getElementById('cont-n').textContent = n;
+  document.getElementById('cont-rot').textContent = `${TIPOS[tipo][1].toLowerCase()}${n === 1 ? ' entregue' : 's entregues'} hoje`;
+  const ult = regs.filter(r => r.obra_id === obra.id && r.data === hojeISO()).sort((a, b) => String(b.entregue_em).localeCompare(String(a.entregue_em))).slice(0, 15);
+  document.getElementById('ultimos').innerHTML = ult.map(r => `<div class="reg${r.cancelado ? ' canc' : ''}"><span class="h">${hhmm(r.entregue_em)}</span>
+    <div class="n"><b>${esc(r.nome)}</b><small>${esc([r.matricula ? 'mat. ' + r.matricula : '', r.empresa, r.repetida ? '⚠️ repetida' : '', r.fora_horario ? '⏰ fora do horário' : ''].filter(Boolean).join(' · ') || '—')}</small></div>
+    <span class="t">${TIPOS[r.tipo][0]} ${r.enviado ? '✓' : '⏳'}</span></div>`).join('') || '<div class="dica" style="padding:6px 2px">Nenhuma entrega hoje ainda.</div>';
+  atualizarStatus();
+}
+async function atualizarStatus() {
+  const el = document.getElementById('status'), fila = await idbTodos('fila');
+  if (!navigator.onLine) { el.className = 'status off'; el.innerHTML = `📴 Sem internet — funcionando no celular${fila.length ? ` · ${fila.length} para enviar` : ''}`; }
+  else if (fila.length) { el.className = 'status pend'; el.innerHTML = `⏳ ${fila.length} para enviar <button onclick="sincronizar()">Enviar agora</button>`; }
+  else { el.className = 'status ok'; el.textContent = '✓ Tudo enviado'; }
+}
+window.addEventListener('online', () => { atualizarStatus(); sincronizar(); });
+window.addEventListener('offline', atualizarStatus);
+setInterval(() => { if (obra && document.getElementById('tela-home').classList.contains('ativa')) renderHome(); }, 60000);
+setInterval(() => { sincronizar(); }, 30000);
+setInterval(() => { if (obra) baixarDados().then(() => { if (document.getElementById('tela-home').classList.contains('ativa')) renderHome(); }); }, 120000);
+
+// ═══════════ leitor de QR / código de barras ═══════════
+let _stream = null, _detector = null, _zx = null, _loop = null, _ultimoCod = '', _ultimoEm = 0, _pausado = false, _escaneando = false;
+async function abrirScanner() {
+  _escaneando = true; _pausado = false;
+  document.getElementById('scan-tit').textContent = TIPOS[tipo][0] + ' ' + TIPOS[tipo][1];
+  atualizarContScan();
+  mostrarTela('tela-scan');
+  const v = document.getElementById('scan-video'), msg = document.getElementById('scan-msg');
+  msg.textContent = 'Aponte para o QR code ou código de barras do crachá';
+  try {
+    if ('BarcodeDetector' in window) {
+      const fm = await BarcodeDetector.getSupportedFormats();
+      _detector = new BarcodeDetector({ formats: fm.filter(f => ['qr_code', 'code_128', 'code_39', 'code_93', 'ean_13', 'ean_8', 'itf', 'codabar', 'upc_a', 'upc_e', 'data_matrix', 'pdf417'].includes(f)) });
+      _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false });
+      v.srcObject = _stream; await v.play();
+      const ciclo = async () => {
+        if (!_escaneando) return;
+        if (!_pausado && v.readyState >= 2) { try { const r = await _detector.detect(v); if (r && r.length) aoLer(r[0].rawValue); } catch (e) { } }
+        _loop = setTimeout(ciclo, 220);
+      };
+      ciclo();
+    } else {
+      // iPhone e celulares sem leitor próprio: biblioteca ZXing (guardada pelo app para funcionar offline)
+      if (!window.ZXing) await new Promise((ok, falha) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'; s.onload = ok; s.onerror = () => falha(new Error('leitor')); document.head.appendChild(s); });
+      _zx = new ZXing.BrowserMultiFormatReader();
+      await _zx.decodeFromConstraints({ video: { facingMode: { ideal: 'environment' } } }, v, (res) => { if (res && !_pausado) aoLer(res.getText()); });
+    }
+  } catch (e) {
+    msg.textContent = (e && e.name === 'NotAllowedError') ? 'A câmera não foi liberada. Permita o uso da câmera ou use "Buscar nome".' : 'Não consegui abrir o leitor (' + (e.message || e) + '). Use "Buscar nome" ou "Digitar".';
+  }
+}
+function fecharScanner() {
+  _escaneando = false; clearTimeout(_loop);
+  try { _stream && _stream.getTracks().forEach(t => t.stop()); } catch (e) { } _stream = null;
+  try { _zx && _zx.reset(); } catch (e) { } _zx = null;
+  mostrarTela('tela-home'); renderHome();
+}
+function voltarAoScanner() { _pausado = false; if (_escaneando) mostrarTela('tela-scan'); else renderHome(); }
+function atualizarContScan() { const el = document.getElementById('scan-cont'); if (el) el.textContent = regsHoje().filter(r => r.tipo === tipo).length + ' hoje'; }
+function aoLer(codigo) {
+  codigo = String(codigo || '').trim(); if (!codigo) return;
+  const agora = Date.now();
+  if (codigo === _ultimoCod && agora - _ultimoEm < 4000) return;   // o mesmo crachá parado na frente da câmera
+  _ultimoCod = codigo; _ultimoEm = agora; _pausado = true;
+  const c = acharPorCodigo(codigo);
+  if (c) registrar({ colab: c, origem: 'cracha', codigo });
+  else { bip(false); abrirBusca(codigo); }
+}
+function acharPorCodigo(codigo) {
+  const cid = crachas[codigo]; if (cid) { const c = colabs.find(x => x.id === cid); if (c) return c; }
+  const d = soDig(codigo);
+  if (d) {
+    const m = colabs.find(x => x.matricula && semZeros(soDig(x.matricula)) === semZeros(d) && soDig(x.matricula).length > 0);
+    if (m) return m;
+    if (d.length === 11) { const p = colabs.find(x => x.cpf && x.cpf === d); if (p) return p; }
+  }
+  const t = norm(codigo); return colabs.find(x => x.matricula && norm(x.matricula) === t) || null;
+}
+// ═══════════ registrar a entrega ═══════════
+let _pendRepetida = null;
+async function registrar({ colab, origem, codigo, manual, foto, liberadaMotivo }) {
+  const agora = new Date(), data = hojeISO(agora);
+  const pessoa = colab ? { id: colab.id, nome: colab.nome, matricula: colab.matricula || null, empresa: null } : { id: null, nome: manual.nome, matricula: manual.matricula || null, empresa: manual.empresa || null };
+  const dup = tipo === 'lanche' ? null : regs.find(r => !r.cancelado && r.obra_id === obra.id && r.data === data && r.tipo === tipo &&
+    (pessoa.id ? r.colaborador_id === pessoa.id : (pessoa.matricula && norm(r.matricula) === norm(pessoa.matricula) && norm(r.empresa) === norm(pessoa.empresa))));
+  if (dup && !liberadaMotivo) {
+    bip(false);
+    _pendRepetida = { colab, origem, codigo, manual, foto };
+    mostrarResultado('vermelho', `<div class="ic">⛔</div><div class="tt">JÁ RECEBEU</div><div class="nm">${esc(pessoa.nome)}</div>
+      <div class="sb">${TIPOS[tipo][1]} entregue às <b>${hhmm(dup.entregue_em)}</b> de hoje</div>
+      <div class="bts"><button class="forte" onclick="fecharResultado();voltarAoScanner()">Não entregar</button><button onclick="fecharResultado();pedirMotivo('${esc(pessoa.nome).replace(/'/g, '')}','${hhmm(dup.entregue_em)}')">Liberar mesmo assim</button></div>`);
+    return;
+  }
+  const fora = !dentroHorario(tipo, agora);
+  const reg = { id: uuid(), obra_id: obra.id, tipo, entregue_em: agora.toISOString(), data, colaborador_id: pessoa.id, nome: pessoa.nome, matricula: pessoa.matricula,
+    empresa: pessoa.empresa, codigo_lido: codigo || null, origem, fora_horario: fora, repetida: !!dup, liberada_motivo: liberadaMotivo || null,
+    aparelho: aparelhoId(), registrado_por: sessao.user.id, registrado_por_nome: meuNome, cancelado: false };
+  regs.push(reg); await idbSalvar('regs', reg);
+  await idbSalvar('fila', { tipo: 'registro', payload: reg, foto: foto || null, em: Date.now() });
+  bip(true);
+  mostrarResultado('verde', `<div class="ic">✅</div><div class="tt">LIBERADO</div><div class="nm">${esc(pessoa.nome)}</div>
+    <div class="sb">${esc([pessoa.matricula ? 'mat. ' + pessoa.matricula : '', pessoa.empresa].filter(Boolean).join(' · '))}</div>
+    <div class="sb">${TIPOS[tipo][0]} ${TIPOS[tipo][1]} · ${hhmm(reg.entregue_em)}</div>
+    ${fora ? `<div class="av">⏰ Fora do horário do ${TIPOS[tipo][1].toLowerCase()} (${faixaTxt(tipo)}) — registrado assim mesmo</div>` : ''}
+    ${dup ? `<div class="av">⚠️ Liberado de novo: ${esc(liberadaMotivo)}</div>` : ''}`, fora || dup ? 2600 : 1500);
+  atualizarContScan();
+  sincronizar();
+}
+let _resTimer = null;
+function mostrarResultado(cor, html, auto) {
+  const r = document.getElementById('res'); r.className = 'res on ' + cor; r.innerHTML = html;
+  clearTimeout(_resTimer);
+  if (auto) { _resTimer = setTimeout(() => { fecharResultado(); voltarAoScanner(); }, auto); r.onclick = () => { clearTimeout(_resTimer); fecharResultado(); voltarAoScanner(); }; }
+  else r.onclick = null;
+}
+function fecharResultado() { const r = document.getElementById('res'); r.className = 'res'; r.innerHTML = ''; }
+function pedirMotivo(nome, hora) {
+  document.getElementById('mot-dica').textContent = `${nome} já recebeu ${TIPOS[tipo][1].toLowerCase()} hoje às ${hora}. A nova entrega fica marcada como repetida, com o motivo.`;
+  document.getElementById('mot-sel').value = ''; document.getElementById('mot-outro').value = ''; document.getElementById('mot-outro-c').style.display = 'none'; document.getElementById('mot-erro').textContent = '';
+  document.getElementById('mot-sel').onchange = e => { document.getElementById('mot-outro-c').style.display = e.target.value === 'Outro' ? '' : 'none'; };
+  abrirModal('m-motivo');
+}
+function confirmarRepetida() {
+  const s = document.getElementById('mot-sel').value, o = document.getElementById('mot-outro').value.trim();
+  const mot = s === 'Outro' ? o : s;
+  if (!mot) { document.getElementById('mot-erro').textContent = 'Informe o motivo.'; return; }
+  fecharModal('m-motivo');
+  registrar({ ..._pendRepetida, liberadaMotivo: mot }); _pendRepetida = null;
+}
+// ═══════════ buscar funcionário (e ligar o crachá desconhecido) ═══════════
+let _buscaCodigo = null;
+function abrirBusca(codigo) {
+  _buscaCodigo = codigo || null;
+  document.getElementById('busca-tit').textContent = codigo ? 'Crachá não reconhecido' : 'Buscar funcionário';
+  document.getElementById('busca-dica').innerHTML = codigo ? `Código lido: <b>${esc(codigo)}</b>. Escolha o funcionário — nas próximas vezes este crachá já é reconhecido.` : 'Nome ou matrícula';
+  document.getElementById('busca-txt').value = ''; renderBusca();
+  if (_escaneando) _pausado = true;
+  abrirModal('m-busca'); setTimeout(() => document.getElementById('busca-txt').focus(), 80);
+}
+function renderBusca() {
+  const q = norm(document.getElementById('busca-txt').value), ps = q.split(' ').filter(Boolean);
+  const el = document.getElementById('busca-res');
+  if (!colabs.length) { el.innerHTML = '<div class="dica">Lista de funcionários ainda não baixada — conecte à internet uma vez.</div>'; return; }
+  if (!ps.length) { el.innerHTML = '<div class="dica">Digite pelo menos 2 letras.</div>'; return; }
+  const achados = colabs.filter(c => { const t = norm(c.nome + ' ' + (c.matricula || '')); return ps.every(p => t.includes(p)); }).slice(0, 30);
+  el.innerHTML = achados.map(c => `<button onclick="escolherColab('${c.id}')"><b>${esc(c.nome)}</b><small>${esc([c.matricula ? 'mat. ' + c.matricula : '', c.cargo].filter(Boolean).join(' · ') || '—')}</small></button>`).join('') || '<div class="dica">Ninguém encontrado. Use "Não está na lista".</div>';
+}
+async function escolherColab(id) {
+  const c = colabs.find(x => x.id === id); if (!c) return;
+  fecharModal('m-busca');
+  if (_buscaCodigo) {   // aprende o crachá
+    crachas[_buscaCodigo] = c.id; await idbSalvar('crachas', { codigo: _buscaCodigo, colaborador_id: c.id });
+    await idbSalvar('fila', { tipo: 'cracha', payload: { codigo: _buscaCodigo, colaborador_id: c.id }, em: Date.now() });
+  }
+  registrar({ colab: c, origem: _buscaCodigo ? 'cracha' : 'busca', codigo: _buscaCodigo });
+  _buscaCodigo = null;
+}
+document.addEventListener('click', ev => { ['m-busca', 'm-manual', 'm-motivo'].forEach(id => { const m = document.getElementById(id); if (ev.target === m) { fecharModal(id); voltarAoScanner(); } }); });
+// ═══════════ digitar (não cadastrado / outra empresa) ═══════════
+let _manCodigo = null, _manFoto = null;
+async function abrirManual(codigo) {
+  _manCodigo = codigo || null; _manFoto = null;
+  ['man-nome', 'man-mat', 'man-emp'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('man-erro').textContent = ''; document.getElementById('man-foto-prev').innerHTML = '';
+  document.getElementById('man-dica').innerHTML = codigo ? `Crachá com código <b>${esc(codigo)}</b>, sem cadastro. Preencha os dados.` : 'Para quem não está no cadastro ou é de outra empresa.';
+  const emps = [...new Set(regs.map(r => r.empresa).filter(Boolean))].slice(0, 30);
+  document.getElementById('emp-lista').innerHTML = emps.map(e => `<option value="${esc(e)}">`).join('');
+  if (_escaneando) _pausado = true;
+  abrirModal('m-manual'); setTimeout(() => document.getElementById('man-nome').focus(), 80);
+}
+function fotoCracha(f) {
+  if (!f) return;
+  const img = new Image(), url = URL.createObjectURL(f);
+  img.onload = () => { const k = Math.min(1, 1280 / Math.max(img.width, img.height)); const cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height); _manFoto = cv.toDataURL('image/jpeg', .8); URL.revokeObjectURL(url);
+    document.getElementById('man-foto-prev').innerHTML = `<img src="${_manFoto}" alt=""><span class="dica">Foto do crachá anexada <a href="#" style="color:var(--or)" onclick="_manFoto=null;this.parentElement.parentElement.innerHTML='';return false">tirar</a></span>`; };
+  img.src = url;
+}
+function salvarManual() {
+  const nome = document.getElementById('man-nome').value.trim().replace(/\s+/g, ' ');
+  const matricula = document.getElementById('man-mat').value.trim(), empresa = document.getElementById('man-emp').value.trim();
+  if (nome.length < 3) { document.getElementById('man-erro').textContent = 'Informe o nome completo.'; return; }
+  fecharModal('m-manual');
+  registrar({ colab: null, origem: 'manual', codigo: _manCodigo, manual: { nome, matricula, empresa }, foto: _manFoto });
+}
+// ═══════════ sincronizar ═══════════
+let _sinc = false;
+async function sincronizar() {
+  if (_sinc || !navigator.onLine || !sessao) return;
+  _sinc = true;
+  try {
+    const fila = (await idbTodos('fila')).sort((a, b) => a.seq - b.seq);
+    for (const it of fila) {
+      try {
+        if (it.tipo === 'registro') {
+          const p = { ...it.payload }; delete p.enviado;
+          if (it.foto && !p.foto_url) { const env = await sgEnviarArquivo(it.foto, { modulo: 'refeicoes', registroId: p.obra_id, nomeArquivo: `cracha-${p.data}-${p.id.slice(0, 8)}.jpg`, mimeType: 'image/jpeg' }); p.foto_url = env.drive_url; it.payload.foto_url = env.drive_url; it.foto = null; await idbSalvar('fila', it); }
+          const { error } = await sb.from('ref_registros').insert(p);
+          if (error && error.code !== '23505') throw error;
+          const r = regs.find(x => x.id === p.id); if (r) { r.enviado = true; r.foto_url = p.foto_url || null; await idbSalvar('regs', r); }
+        } else if (it.tipo === 'cracha') {
+          const { error } = await sb.from('ref_crachas').insert(it.payload);
+          if (error && error.code !== '23505') throw error;
+        }
+        await idbRemover('fila', it.seq);
+      } catch (e) {
+        if (/JWT|jwt|401|sess/i.test(e.message || '')) { try { await sb.auth.refreshSession(); } catch (er) { } }
+        it.tentativas = (it.tentativas || 0) + 1; it.erro = e.message || String(e); await idbSalvar('fila', it);
+        break;   // mantém a ordem: tenta de novo depois
+      }
+    }
+  } finally { _sinc = false; if (document.getElementById('tela-home').classList.contains('ativa')) renderHome(); else atualizarStatus(); }
+}
+// celulares sem leitor próprio (iPhone): já deixa a biblioteca guardada para funcionar sem internet
+window.addEventListener('load', () => { if (!('BarcodeDetector' in window) && navigator.onLine && !window.ZXing) { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js'; document.head.appendChild(s); } });
+
+</script>
+</body>
+</html>
