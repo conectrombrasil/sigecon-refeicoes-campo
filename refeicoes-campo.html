@@ -84,6 +84,11 @@ button,input,select{font-family:inherit;font-size:inherit;}
 .foto-prev{display:flex;align-items:center;gap:10px;margin:4px 0 12px;}
 .foto-prev img{width:64px;height:64px;object-fit:cover;border-radius:10px;}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#374151;color:#fff;padding:11px 16px;border-radius:12px;font-size:14px;z-index:60;max-width:92vw;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+.instalar{display:none;align-items:center;gap:10px;margin:0 0 14px;padding:11px 12px;border-radius:12px;background:rgba(249,115,22,.10);border:1px solid rgba(249,115,22,.4);font-size:13px;color:var(--tx2);}
+.instalar span{flex:1;}
+.instalar button{background:var(--or);color:#fff;border:0;border-radius:9px;padding:8px 12px;font-weight:700;font-size:13px;cursor:pointer;}
+.instalar button.x{background:none;color:var(--tx3);padding:4px 6px;}
+body.instalavel .instalar{display:flex;}
 .toast.erro{background:#B91C1C;}.toast.ok{background:#15803D;}
 .selo{text-align:center;font-size:11px;color:var(--tx3);margin-top:18px;}
 .obra-it{display:block;width:100%;text-align:left;padding:15px 14px;border:1px solid var(--bd);background:var(--bg2);color:var(--tx);border-radius:13px;margin-bottom:8px;font-size:15px;font-weight:600;cursor:pointer;}
@@ -102,6 +107,7 @@ button,input,select{font-family:inherit;font-size:inherit;}
     <div class="campo"><label>Senha</label><input type="password" id="login-senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
     <div class="erro" id="login-erro"></div>
     <button class="btn" id="btn-login" onclick="fazerLogin()">Entrar</button>
+    <div class="instalar" style="margin-top:16px"><span>📲 Instale o app na tela do celular: abre mais rápido e funciona sem internet.</span><button onclick="instalarApp()">Instalar</button></div>
     <div class="selo" id="selo-login"></div>
   </div>
 </div>
@@ -117,6 +123,7 @@ button,input,select{font-family:inherit;font-size:inherit;}
   <div class="topo"><h1 id="home-obra">—<small id="home-data"></small></h1><button class="ic-btn" onclick="trocarObra()" title="Trocar obra">🏗️</button><button class="ic-btn" onclick="sair()" title="Sair">⎋</button></div>
   <div class="status" id="status"></div>
   <div class="conteudo">
+    <div class="instalar"><span>📲 Instale o app na tela do celular para abrir direto e usar sem internet.</span><button onclick="instalarApp()">Instalar</button><button class="x" onclick="document.body.classList.remove('instalavel')" title="Agora não">✕</button></div>
     <div class="tipos" id="tipos"></div>
     <div class="cont"><b id="cont-n">0</b><span id="cont-rot">entregues</span></div>
     <button class="btn grande" onclick="abrirScanner()">📷 Ler crachá</button>
@@ -178,7 +185,7 @@ button,input,select{font-family:inherit;font-size:inherit;}
   <div class="linha2" style="margin-top:0"><button class="btn sec" onclick="fecharModal('m-motivo');voltarAoScanner()">Cancelar</button><button class="btn" onclick="confirmarRepetida()">Liberar</button></div>
 </div></div>
 <script>
-const APP_VERSAO = 'v2 · 04/11';
+const APP_VERSAO = 'v3 · 04/11';
 const SUPABASE_URL = 'https://adfrybyxcamkuyewzyns.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkZnJ5Ynl4Y2Fta3V5ZXd6eW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODQzNTcsImV4cCI6MjA5MTg2MDM1N30.DWzvf6tS-0TQ_zfXaq3MKE5eCwIz0gMyidAPBs-YuJ0';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'sigecon-refeicoes' } });
@@ -407,7 +414,8 @@ let colabs = [], crachas = {}, horarios = [], regs = [];
 window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('selo-login').textContent = 'Refeições · ' + APP_VERSAO;
   document.getElementById('selo-home').textContent = 'Refeições · ' + APP_VERSAO;
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { });
+  registrarAtualizacao();
+  if (!appInstalado()) document.body.classList.add('instalavel');
   const { data } = await sb.auth.getSession();
   if (!data?.session) { mostrarTela('tela-login'); return; }
   sessao = data.session; await iniciar();
@@ -534,6 +542,41 @@ window.addEventListener('offline', atualizarStatus);
 setInterval(() => { if (obra && document.getElementById('tela-home').classList.contains('ativa')) renderHome(); }, 60000);
 setInterval(() => { sincronizar(); }, 30000);
 setInterval(() => { if (obra) baixarDados().then(() => { if (document.getElementById('tela-home').classList.contains('ativa')) renderHome(); }); }, 120000);
+
+// ═══════════ instalar na tela do celular ═══════════
+let _eventoInstalar = null;
+const appInstalado = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+window.addEventListener('beforeinstallprompt', ev => { ev.preventDefault(); _eventoInstalar = ev; if (!appInstalado()) document.body.classList.add('instalavel'); });
+window.addEventListener('appinstalled', () => { _eventoInstalar = null; document.body.classList.remove('instalavel'); toast('✅ App instalado na tela do celular', 'ok'); });
+async function instalarApp() {
+  if (_eventoInstalar) {
+    _eventoInstalar.prompt();
+    try { const r = await _eventoInstalar.userChoice; if (r.outcome === 'accepted') document.body.classList.remove('instalavel'); } catch (e) { }
+    _eventoInstalar = null; return;
+  }
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  toast(ios ? 'No iPhone (Safari): toque em Compartilhar ⬆️ e depois em "Adicionar à Tela de Início".' : 'No Chrome: toque em ⋮ (canto de cima) e depois em "Instalar app" ou "Adicionar à tela inicial".');
+}
+// ═══════════ atualização automática ═══════════
+// O celular confere se há versão nova ao abrir, a cada 30 min e quando o app volta para a frente.
+// Havendo, a versão nova assume e a tela recarrega sozinha (os registros ficam guardados no aparelho).
+let _recarregando = false;
+function registrarAtualizacao() {
+  if (!('serviceWorker' in navigator)) return;
+  const tinhaControle = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+    const conferir = () => { if (navigator.onLine) reg.update().catch(() => { }); };
+    setInterval(conferir, 30 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') conferir(); });
+  }).catch(() => { });
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!tinhaControle || _recarregando) return;   // primeira instalação: não precisa recarregar
+    const recarregar = () => { if (_recarregando) return; _recarregando = true; location.reload(); };
+    // não interrompe uma leitura em andamento: espera voltar para a tela inicial
+    if (typeof _escaneando !== 'undefined' && _escaneando) { const t = setInterval(() => { if (!_escaneando) { clearInterval(t); recarregar(); } }, 2000); }
+    else recarregar();
+  });
+}
 
 // ═══════════ leitor de QR / código de barras ═══════════
 let _stream = null, _detector = null, _zx = null, _loop = null, _ultimoCod = '', _ultimoEm = 0, _pausado = false, _escaneando = false;
