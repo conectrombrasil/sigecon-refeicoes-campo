@@ -89,6 +89,10 @@ button,input,select{font-family:inherit;font-size:inherit;}
 .instalar button{background:var(--or);color:#fff;border:0;border-radius:9px;padding:8px 12px;font-weight:700;font-size:13px;cursor:pointer;}
 .instalar button.x{background:none;color:var(--tx3);padding:4px 6px;}
 body.instalavel .instalar{display:flex;}
+.fora-hora{display:none;margin:12px 0 0;padding:11px 13px;border-radius:12px;background:rgba(224,168,48,.14);border:1px solid rgba(224,168,48,.55);color:#F1C66B;font-size:13.5px;font-weight:600;line-height:1.35;}
+.fora-hora.on{display:block;}
+.scan-fora{display:none;position:fixed;left:12px;right:12px;top:calc(64px + env(safe-area-inset-top));background:rgba(224,168,48,.92);color:#1a1300;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;text-align:center;z-index:5;}
+.scan-fora.on{display:block;}
 .toast.erro{background:#B91C1C;}.toast.ok{background:#15803D;}
 .selo{text-align:center;font-size:11px;color:var(--tx3);margin-top:18px;}
 .obra-it{display:block;width:100%;text-align:left;padding:15px 14px;border:1px solid var(--bd);background:var(--bg2);color:var(--tx);border-radius:13px;margin-bottom:8px;font-size:15px;font-weight:600;cursor:pointer;}
@@ -125,6 +129,7 @@ body.instalavel .instalar{display:flex;}
   <div class="conteudo">
     <div class="instalar"><span>📲 Instale o app na tela do celular para abrir direto e usar sem internet.</span><button onclick="instalarApp()">Instalar</button><button class="x" onclick="document.body.classList.remove('instalavel')" title="Agora não">✕</button></div>
     <div class="tipos" id="tipos"></div>
+    <div class="fora-hora" id="fora-hora"></div>
     <div class="cont"><b id="cont-n">0</b><span id="cont-rot">entregues</span></div>
     <button class="btn grande" onclick="abrirScanner()">📷 Ler crachá</button>
     <div class="linha2">
@@ -141,6 +146,7 @@ body.instalavel .instalar{display:flex;}
   <video id="scan-video" playsinline muted autoplay></video>
   <div class="scan-mira"></div>
   <div class="scan-topo"><button class="ic-btn" onclick="fecharScanner()" style="background:rgba(0,0,0,.4);color:#fff;border-color:rgba(255,255,255,.3)">✕</button><div class="t" id="scan-tit">Almoço</div><span id="scan-cont" style="font-weight:700;text-shadow:0 1px 4px #000"></span></div>
+  <div class="scan-fora" id="scan-fora"></div>
   <div class="scan-msg" id="scan-msg">Aponte para o QR code ou código de barras do crachá</div>
   <div class="scan-pe"><button class="btn sec" onclick="fecharScanner();abrirBusca()">🔎 Buscar nome</button><button class="btn sec" onclick="fecharScanner();abrirManual()">⌨️ Digitar</button></div>
 </div>
@@ -185,7 +191,7 @@ body.instalavel .instalar{display:flex;}
   <div class="linha2" style="margin-top:0"><button class="btn sec" onclick="fecharModal('m-motivo');voltarAoScanner()">Cancelar</button><button class="btn" onclick="confirmarRepetida()">Liberar</button></div>
 </div></div>
 <script>
-const APP_VERSAO = 'v3 · 04/11';
+const APP_VERSAO = 'v4 · 04/11';
 const SUPABASE_URL = 'https://adfrybyxcamkuyewzyns.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkZnJ5Ynl4Y2Fta3V5ZXd6eW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODQzNTcsImV4cCI6MjA5MTg2MDM1N30.DWzvf6tS-0TQ_zfXaq3MKE5eCwIz0gMyidAPBs-YuJ0';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'sigecon-refeicoes' } });
@@ -522,6 +528,7 @@ function renderHome() {
   const hd = document.getElementById('home-data'); if (hd) hd.textContent = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
   const hj = regsHoje();
   document.getElementById('tipos').innerHTML = Object.entries(TIPOS).map(([k, [ic, rot]]) => `<button class="${k === tipo ? 'on' : ''}" onclick="tipo='${k}';renderHome()"><span>${ic}</span>${rot}<b>${hj.filter(r => r.tipo === k).length} · ${faixaTxt(k)}</b></button>`).join('');
+  avisoForaHorario();
   const n = hj.filter(r => r.tipo === tipo).length;
   document.getElementById('cont-n').textContent = n;
   document.getElementById('cont-rot').textContent = `${TIPOS[tipo][1].toLowerCase()}${n === 1 ? ' entregue' : 's entregues'} hoje`;
@@ -578,12 +585,19 @@ function registrarAtualizacao() {
   });
 }
 
+// aviso (não bloqueia): a refeição escolhida está fora do horário configurado
+function avisoForaHorario() {
+  const fora = !dentroHorario(tipo, new Date()), txt = `⏰ Fora do horário do ${TIPOS[tipo][1].toLowerCase()} (${faixaTxt(tipo)}). Se entregar agora, fica registrado como fora do horário.`;
+  const el = document.getElementById('fora-hora'); if (el) { el.textContent = txt; el.classList.toggle('on', fora); }
+  const sc = document.getElementById('scan-fora'); if (sc) { sc.textContent = `⏰ Fora do horário do ${TIPOS[tipo][1].toLowerCase()} (${faixaTxt(tipo)})`; sc.classList.toggle('on', fora); }
+}
+
 // ═══════════ leitor de QR / código de barras ═══════════
 let _stream = null, _detector = null, _zx = null, _loop = null, _ultimoCod = '', _ultimoEm = 0, _pausado = false, _escaneando = false;
 async function abrirScanner() {
   _escaneando = true; _pausado = false;
   document.getElementById('scan-tit').textContent = TIPOS[tipo][0] + ' ' + TIPOS[tipo][1];
-  atualizarContScan();
+  atualizarContScan(); avisoForaHorario();
   mostrarTela('tela-scan');
   const v = document.getElementById('scan-video'), msg = document.getElementById('scan-msg');
   msg.textContent = 'Aponte para o QR code ou código de barras do crachá';
