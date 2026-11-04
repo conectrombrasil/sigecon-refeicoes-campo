@@ -122,9 +122,15 @@ body.instalavel .instalar{display:flex;}
   <div class="conteudo"><div id="obras-lista"></div><div class="erro" id="obra-erro"></div></div>
 </div>
 
+<!-- FORNECEDOR (contrato de refeições da obra) -->
+<div class="tela" id="tela-forn">
+  <div class="topo"><h1>Qual fornecedor?<small id="forn-obra">Contrato de refeições da obra</small></h1><button class="ic-btn" onclick="trocarObra()" title="Trocar obra">🏗️</button><button class="ic-btn" onclick="sair()" title="Sair">⎋</button></div>
+  <div class="conteudo"><div id="forn-lista"></div><div class="erro" id="forn-erro"></div></div>
+</div>
+
 <!-- PRINCIPAL -->
 <div class="tela" id="tela-home">
-  <div class="topo"><h1 id="home-obra">—<small id="home-data"></small></h1><button class="ic-btn" onclick="trocarObra()" title="Trocar obra">🏗️</button><button class="ic-btn" onclick="sair()" title="Sair">⎋</button></div>
+  <div class="topo"><h1 id="home-obra">—<small id="home-data"></small></h1><button class="ic-btn" onclick="trocarObra()" title="Trocar obra / fornecedor">🏗️</button><button class="ic-btn" onclick="sair()" title="Sair">⎋</button></div>
   <div class="status" id="status"></div>
   <div class="conteudo">
     <div class="instalar"><span>📲 Instale o app na tela do celular para abrir direto e usar sem internet.</span><button onclick="instalarApp()">Instalar</button><button class="x" onclick="document.body.classList.remove('instalavel')" title="Agora não">✕</button></div>
@@ -191,7 +197,7 @@ body.instalavel .instalar{display:flex;}
   <div class="linha2" style="margin-top:0"><button class="btn sec" onclick="fecharModal('m-motivo');voltarAoScanner()">Cancelar</button><button class="btn" onclick="confirmarRepetida()">Liberar</button></div>
 </div></div>
 <script>
-const APP_VERSAO = 'v4 · 04/11';
+const APP_VERSAO = 'v5 · 04/11';
 const SUPABASE_URL = 'https://adfrybyxcamkuyewzyns.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkZnJ5Ynl4Y2Fta3V5ZXd6eW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODQzNTcsImV4cCI6MjA5MTg2MDM1N30.DWzvf6tS-0TQ_zfXaq3MKE5eCwIz0gMyidAPBs-YuJ0';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'sigecon-refeicoes' } });
@@ -413,7 +419,7 @@ function bip(ok) {
 function aparelhoId() { try { let a = localStorage.getItem('ref_aparelho'); if (!a) { a = uuid().slice(0, 8); localStorage.setItem('ref_aparelho', a); } return a; } catch (e) { return 'web'; } }
 
 // ═══════════ estado ═══════════
-let sessao = null, perfil = null, meuNome = '', obra = null, tipo = 'almoco';
+let sessao = null, perfil = null, meuNome = '', obra = null, contrato = null, tipo = 'almoco';
 let colabs = [], crachas = {}, horarios = [], regs = [];
 
 // ═══════════ entrada ═══════════
@@ -454,9 +460,10 @@ async function iniciar() {
   if (!meuNome) meuNome = (await kvPegar('nome')) || sessao.user.email;
   if (!perfil) { document.getElementById('login-erro').textContent = 'Seu usuário não tem acesso ao módulo Refeições. Fale com o administrador.'; await sb.auth.signOut(); mostrarTela('tela-login'); return; }
   if (perfil === 'visualizador') { document.getElementById('login-erro').textContent = 'Seu acesso é só de visualização: veja os registros no SIGECON.'; await sb.auth.signOut(); mostrarTela('tela-login'); return; }
-  obra = await kvPegar('obra');
+  obra = await kvPegar('obra'); contrato = await kvPegar('contrato');
   await carregarLocal();
-  if (!obra) { await escolherObra(); return; }
+  if (!obra) { await escolherObra(true); return; }
+  if (!contrato || contrato.obra_id !== obra.id) { await escolherContrato(true); return; }
   await entrarHome();
 }
 async function carregarLocal() {
@@ -466,21 +473,59 @@ async function carregarLocal() {
   regs = await idbTodos('regs');
 }
 // ═══════════ obra ═══════════
-async function escolherObra() {
+async function escolherObra(auto) {
   mostrarTela('tela-obra');
   const el = document.getElementById('obras-lista'), er = document.getElementById('obra-erro');
   let obras = (await kvPegar('obras')) || [];
   if (navigator.onLine) { try { const { data, error } = await sb.rpc('ref_minhas_obras'); if (!error) { obras = data || []; await kvSalvar('obras', obras); } } catch (e) { } }
   er.textContent = obras.length ? '' : (navigator.onLine ? 'Nenhuma obra liberada para você.' : 'Sem internet: conecte uma vez para baixar as obras.');
   el.innerHTML = obras.map(o => `<button class="obra-it" onclick="definirObra('${o.id}')">🏗️ ${esc(o.nome)}</button>`).join('');
+  if (auto && obras.length === 1) await definirObra(obras[0].id);   // uma obra só: já entra nela
 }
-async function definirObra(id) { const obras = (await kvPegar('obras')) || []; obra = obras.find(o => o.id === id); await kvSalvar('obra', obra); await entrarHome(); }
-function trocarObra() { escolherObra(); }
+async function definirObra(id) { const obras = (await kvPegar('obras')) || []; obra = obras.find(o => o.id === id); await kvSalvar('obra', obra); await escolherContrato(true); }
+function trocarObra() { escolherObra(false); }
+// ═══════════ fornecedor: contrato de refeições ativo da obra (liga as entregas com a medição) ═══════════
+async function escolherContrato(auto) {
+  mostrarTela('tela-forn');
+  document.getElementById('forn-obra').textContent = obra.nome;
+  const el = document.getElementById('forn-lista'), er = document.getElementById('forn-erro');
+  el.innerHTML = '<div class="dica">Carregando…</div>'; er.textContent = '';
+  let lista = (await kvPegar('contratos_' + obra.id)) || [];
+  if (navigator.onLine) { try { const { data, error } = await sb.rpc('ref_contratos', { p_obra: obra.id }); if (!error) { lista = data || []; await kvSalvar('contratos_' + obra.id, lista); } } catch (e) { } }
+  const ult = await kvPegar('contrato_ult_' + obra.id);
+  if (!lista.length) {
+    el.innerHTML = '';
+    er.textContent = navigator.onLine ? 'Nenhum contrato de Fornecimento de Refeições ativo nesta obra. Peça ao administrador para cadastrar o contrato do fornecedor.' : 'Sem internet: conecte uma vez para baixar os fornecedores desta obra.';
+    return;
+  }
+  el.innerHTML = lista.map(c => `<button class="obra-it" onclick="definirContrato('${c.id}')">🍽️ ${esc(c.fornecedor_nome || 'Fornecedor')}<small style="display:block;font-size:12px;color:var(--tx3);margin-top:3px">Contrato ${esc(c.numero || '—')}${c.id === ult ? ' · ✓ último usado' : ''}</small></button>`).join('');
+  if (auto && lista.length === 1) await definirContrato(lista[0].id);   // um fornecedor só: já entra
+}
+async function definirContrato(id) {
+  const lista = (await kvPegar('contratos_' + obra.id)) || [];
+  const c = lista.find(x => x.id === id); if (!c) return;
+  contrato = { id: c.id, obra_id: obra.id, numero: c.numero, fornecedor_id: c.fornecedor_id, fornecedor_nome: c.fornecedor_nome };
+  await kvSalvar('contrato', contrato); await kvSalvar('contrato_ult_' + obra.id, c.id);
+  await entrarHome();
+}
+// com internet: se o contrato escolhido deixou de estar ativo, pede para escolher de novo
+async function conferirContrato() {
+  if (!navigator.onLine || !obra || !contrato) return;
+  try {
+    const { data, error } = await sb.rpc('ref_contratos', { p_obra: obra.id });
+    if (error) return;
+    await kvSalvar('contratos_' + obra.id, data || []);
+    if (!(data || []).some(c => c.id === contrato.id) && document.getElementById('tela-home').classList.contains('ativa')) {
+      toast('O contrato deste fornecedor não está mais ativo. Escolha o fornecedor de novo.', 'erro');
+      contrato = null; await kvSalvar('contrato', null); await escolherContrato(true);
+    }
+  } catch (e) { }
+}
 async function entrarHome() {
   document.getElementById('home-obra').innerHTML = `${esc(obra.nome)}<small id="home-data"></small>`;
   tipo = tipoPelaHora();
   mostrarTela('tela-home'); renderHome();
-  baixarDados().then(renderHome);
+  baixarDados().then(() => { renderHome(); conferirContrato(); });
   sincronizar();
 }
 // ═══════════ dados do servidor ═══════════
@@ -525,7 +570,7 @@ const regsHoje = () => regs.filter(r => r.obra_id === obra?.id && r.data === hoj
 function renderHome() {
   if (!obra) return;
   const d = new Date();
-  const hd = document.getElementById('home-data'); if (hd) hd.textContent = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+  const hd = document.getElementById('home-data'); if (hd) hd.textContent = [contrato ? '🍽️ ' + contrato.fornecedor_nome : '', d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })].filter(Boolean).join(' · ');
   const hj = regsHoje();
   document.getElementById('tipos').innerHTML = Object.entries(TIPOS).map(([k, [ic, rot]]) => `<button class="${k === tipo ? 'on' : ''}" onclick="tipo='${k}';renderHome()"><span>${ic}</span>${rot}<b>${hj.filter(r => r.tipo === k).length} · ${faixaTxt(k)}</b></button>`).join('');
   avisoForaHorario();
@@ -667,7 +712,7 @@ async function registrar({ colab, origem, codigo, manual, foto, liberadaMotivo }
     return;
   }
   const fora = !dentroHorario(tipo, agora);
-  const reg = { id: uuid(), obra_id: obra.id, tipo, entregue_em: agora.toISOString(), data, colaborador_id: pessoa.id, nome: pessoa.nome, matricula: pessoa.matricula,
+  const reg = { id: uuid(), obra_id: obra.id, contrato_id: contrato?.id || null, tipo, entregue_em: agora.toISOString(), data, colaborador_id: pessoa.id, nome: pessoa.nome, matricula: pessoa.matricula,
     empresa: pessoa.empresa, codigo_lido: codigo || null, origem, fora_horario: fora, repetida: !!dup, liberada_motivo: liberadaMotivo || null,
     aparelho: aparelhoId(), registrado_por: sessao.user.id, registrado_por_nome: meuNome, cancelado: false };
   regs.push(reg); await idbSalvar('regs', reg);
