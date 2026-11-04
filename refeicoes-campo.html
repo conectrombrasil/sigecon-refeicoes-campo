@@ -147,6 +147,7 @@ button,input,select{font-family:inherit;font-size:inherit;}
   <div class="dica" id="busca-dica" style="margin-bottom:8px">Nome ou matrícula</div>
   <div class="campo"><input id="busca-txt" placeholder="Digite o nome ou a matrícula" oninput="renderBusca()" autocomplete="off"></div>
   <div class="busca-res" id="busca-res"></div>
+  <button class="btn" id="busca-depois" style="display:none;margin-top:10px" onclick="liberarSemIdentificar()">✅ Liberar e identificar depois</button>
   <div class="linha2"><button class="btn sec" onclick="fecharModal('m-busca')">Cancelar</button><button class="btn sec" onclick="fecharModal('m-busca');abrirManual(_buscaCodigo)">Não está na lista</button></div>
 </div></div>
 
@@ -177,7 +178,7 @@ button,input,select{font-family:inherit;font-size:inherit;}
   <div class="linha2" style="margin-top:0"><button class="btn sec" onclick="fecharModal('m-motivo');voltarAoScanner()">Cancelar</button><button class="btn" onclick="confirmarRepetida()">Liberar</button></div>
 </div></div>
 <script>
-const APP_VERSAO = 'v1 · 04/11';
+const APP_VERSAO = 'v2 · 04/11';
 const SUPABASE_URL = 'https://adfrybyxcamkuyewzyns.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkZnJ5Ynl4Y2Fta3V5ZXd6eW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODQzNTcsImV4cCI6MjA5MTg2MDM1N30.DWzvf6tS-0TQ_zfXaq3MKE5eCwIz0gMyidAPBs-YuJ0';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'sigecon-refeicoes' } });
@@ -477,7 +478,7 @@ async function baixarDados() {
       sb.rpc('ref_colaboradores'),
       sb.from('ref_crachas').select('codigo,colaborador_id'),
       sb.from('ref_horarios').select('*').eq('ativo', true),
-      sb.from('ref_registros').select('id,obra_id,tipo,entregue_em,data,colaborador_id,nome,matricula,empresa,origem,cancelado,repetida,fora_horario').eq('obra_id', obra.id).gte('data', desde),
+      sb.from('ref_registros').select('id,obra_id,tipo,entregue_em,data,colaborador_id,nome,matricula,empresa,codigo_lido,origem,cancelado,repetida,fora_horario').eq('obra_id', obra.id).gte('data', desde),
     ]);
     if (!c1.error) { colabs = c1.data || []; await idbTrocarTudo('colabs', colabs); }
     if (!c2.error) { await idbTrocarTudo('crachas', c2.data || []); crachas = {}; (c2.data || []).forEach(c => { crachas[c.codigo] = c.colaborador_id; }); }
@@ -518,7 +519,7 @@ function renderHome() {
   document.getElementById('cont-rot').textContent = `${TIPOS[tipo][1].toLowerCase()}${n === 1 ? ' entregue' : 's entregues'} hoje`;
   const ult = regs.filter(r => r.obra_id === obra.id && r.data === hojeISO()).sort((a, b) => String(b.entregue_em).localeCompare(String(a.entregue_em))).slice(0, 15);
   document.getElementById('ultimos').innerHTML = ult.map(r => `<div class="reg${r.cancelado ? ' canc' : ''}"><span class="h">${hhmm(r.entregue_em)}</span>
-    <div class="n"><b>${esc(r.nome)}</b><small>${esc([r.matricula ? 'mat. ' + r.matricula : '', r.empresa, r.repetida ? '⚠️ repetida' : '', r.fora_horario ? '⏰ fora do horário' : ''].filter(Boolean).join(' · ') || '—')}</small></div>
+    <div class="n"${!r.colaborador_id && !r.matricula && r.codigo_lido && !r.cancelado ? ` onclick="identificarDepois('${encodeURIComponent(r.codigo_lido)}')" style="cursor:pointer"` : ''}><b>${esc(r.nome)}</b>${!r.colaborador_id && !r.matricula && r.codigo_lido && !r.cancelado ? '<small style="color:var(--or)">❓ toque para identificar</small>' : ''}<small>${esc([r.matricula ? 'mat. ' + r.matricula : '', r.empresa, r.repetida ? '⚠️ repetida' : '', r.fora_horario ? '⏰ fora do horário' : ''].filter(Boolean).join(' · ') || '—')}</small></div>
     <span class="t">${TIPOS[r.tipo][0]} ${r.enviado ? '✓' : '⏳'}</span></div>`).join('') || '<div class="dica" style="padding:6px 2px">Nenhuma entrega hoje ainda.</div>';
   atualizarStatus();
 }
@@ -598,7 +599,8 @@ async function registrar({ colab, origem, codigo, manual, foto, liberadaMotivo }
   const agora = new Date(), data = hojeISO(agora);
   const pessoa = colab ? { id: colab.id, nome: colab.nome, matricula: colab.matricula || null, empresa: null } : { id: null, nome: manual.nome, matricula: manual.matricula || null, empresa: manual.empresa || null };
   const dup = tipo === 'lanche' ? null : regs.find(r => !r.cancelado && r.obra_id === obra.id && r.data === data && r.tipo === tipo &&
-    (pessoa.id ? r.colaborador_id === pessoa.id : (pessoa.matricula && norm(r.matricula) === norm(pessoa.matricula) && norm(r.empresa) === norm(pessoa.empresa))));
+    ((pessoa.id && r.colaborador_id === pessoa.id) || (codigo && r.codigo_lido === codigo) ||
+     (!pessoa.id && pessoa.matricula && norm(r.matricula) === norm(pessoa.matricula) && norm(r.empresa) === norm(pessoa.empresa))));
   if (dup && !liberadaMotivo) {
     bip(false);
     _pendRepetida = { colab, origem, codigo, manual, foto };
@@ -644,11 +646,12 @@ function confirmarRepetida() {
   registrar({ ..._pendRepetida, liberadaMotivo: mot }); _pendRepetida = null;
 }
 // ═══════════ buscar funcionário (e ligar o crachá desconhecido) ═══════════
-let _buscaCodigo = null;
-function abrirBusca(codigo) {
-  _buscaCodigo = codigo || null;
-  document.getElementById('busca-tit').textContent = codigo ? 'Crachá não reconhecido' : 'Buscar funcionário';
-  document.getElementById('busca-dica').innerHTML = codigo ? `Código lido: <b>${esc(codigo)}</b>. Escolha o funcionário — nas próximas vezes este crachá já é reconhecido.` : 'Nome ou matrícula';
+let _buscaCodigo = null, _soIdentificar = false;
+function abrirBusca(codigo, soIdentificar) {
+  _buscaCodigo = codigo || null; _soIdentificar = !!soIdentificar;
+  document.getElementById('busca-depois').style.display = codigo && !soIdentificar ? '' : 'none';
+  document.getElementById('busca-tit').textContent = soIdentificar ? 'Identificar crachá' : codigo ? 'Crachá não reconhecido' : 'Buscar funcionário';
+  document.getElementById('busca-dica').innerHTML = codigo ? `Código lido: <b>${esc(codigo.length > 18 ? codigo.slice(0, 8) + '…' + codigo.slice(-6) : codigo)}</b>. Escolha o funcionário — nas próximas vezes este crachá já é reconhecido.` : 'Nome ou matrícula';
   document.getElementById('busca-txt').value = ''; renderBusca();
   if (_escaneando) _pausado = true;
   abrirModal('m-busca'); setTimeout(() => document.getElementById('busca-txt').focus(), 80);
@@ -664,13 +667,24 @@ function renderBusca() {
 async function escolherColab(id) {
   const c = colabs.find(x => x.id === id); if (!c) return;
   fecharModal('m-busca');
-  if (_buscaCodigo) {   // aprende o crachá
+  if (_buscaCodigo) {   // aprende o crachá e completa as entregas que ficaram sem identificar
     crachas[_buscaCodigo] = c.id; await idbSalvar('crachas', { codigo: _buscaCodigo, colaborador_id: c.id });
     await idbSalvar('fila', { tipo: 'cracha', payload: { codigo: _buscaCodigo, colaborador_id: c.id }, em: Date.now() });
+    for (const r of regs.filter(x => x.codigo_lido === _buscaCodigo && !x.colaborador_id && !x.matricula)) {
+      Object.assign(r, { colaborador_id: c.id, nome: c.nome, matricula: c.matricula || null }); await idbSalvar('regs', r);
+    }
   }
+  if (_soIdentificar) { toast(`Crachá ligado a ${c.nome}.`); _buscaCodigo = null; _soIdentificar = false; renderHome(); sincronizar(); return; }
   registrar({ colab: c, origem: _buscaCodigo ? 'cracha' : 'busca', codigo: _buscaCodigo });
   _buscaCodigo = null;
 }
+// fila andando: libera agora com o código lido e diz quem é depois (no celular ou no SIGECON)
+function liberarSemIdentificar() {
+  const cod = _buscaCodigo; if (!cod) return;
+  fecharModal('m-busca'); _buscaCodigo = null;
+  registrar({ colab: null, origem: 'cracha', codigo: cod, manual: { nome: 'Crachá não identificado', matricula: '', empresa: '' } });
+}
+function identificarDepois(cod) { abrirBusca(decodeURIComponent(cod), true); }
 document.addEventListener('click', ev => { ['m-busca', 'm-manual', 'm-motivo'].forEach(id => { const m = document.getElementById(id); if (ev.target === m) { fecharModal(id); voltarAoScanner(); } }); });
 // ═══════════ digitar (não cadastrado / outra empresa) ═══════════
 let _manCodigo = null, _manFoto = null;
@@ -715,8 +729,8 @@ async function sincronizar() {
           if (error && error.code !== '23505') throw error;
           const r = regs.find(x => x.id === p.id); if (r) { r.enviado = true; r.foto_url = p.foto_url || null; await idbSalvar('regs', r); }
         } else if (it.tipo === 'cracha') {
-          const { error } = await sb.from('ref_crachas').insert(it.payload);
-          if (error && error.code !== '23505') throw error;
+          const { error } = await sb.rpc('ref_identificar_cracha', { p_codigo: it.payload.codigo, p_colaborador: it.payload.colaborador_id });
+          if (error) { if (/outra pessoa/i.test(error.message)) toast('⚠️ ' + error.message); else throw error; }
         }
         await idbRemover('fila', it.seq);
       } catch (e) {
