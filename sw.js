@@ -1,7 +1,7 @@
 // Service worker do app Refeições (SIGECON).
 // Tudo que é buscado com sucesso fica guardado; se a rede falhar, usa o que já está guardado.
 
-const CACHE_NOME = 'refeicoes-campo-v4'; // trocar o número força os celulares a renovarem o cache
+const CACHE_NOME = 'refeicoes-campo-v5'; // trocar o número força os celulares a renovarem o cache
 const ARQUIVOS_ESSENCIAIS = [
   './',
   './index.html',
