@@ -8,6 +8,8 @@
 <link rel="icon" href="icone.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icone-180.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Refeições">
 <title>Refeições — SIGECON</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -197,7 +199,7 @@ body.instalavel .instalar{display:flex;}
   <div class="linha2" style="margin-top:0"><button class="btn sec" onclick="fecharModal('m-motivo');voltarAoScanner()">Cancelar</button><button class="btn" onclick="confirmarRepetida()">Liberar</button></div>
 </div></div>
 <script>
-const APP_VERSAO = 'v5 · 04/11';
+const APP_VERSAO = 'v6 · 05/11';
 const SUPABASE_URL = 'https://adfrybyxcamkuyewzyns.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkZnJ5Ynl4Y2Fta3V5ZXd6eW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODQzNTcsImV4cCI6MjA5MTg2MDM1N30.DWzvf6tS-0TQ_zfXaq3MKE5eCwIz0gMyidAPBs-YuJ0';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'sigecon-refeicoes' } });
